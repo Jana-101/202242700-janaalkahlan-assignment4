@@ -11,15 +11,20 @@
 </head>
 <body>
 
+  <!-- ============ SCROLL PROGRESS BAR ============ -->
+  <!-- Thin bar at very top — fills as user scrolls down the page -->
+  <div class="scroll-progress" id="scrollProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Page scroll progress"></div>
+
   <!-- ============ NAVIGATION ============ -->
   <nav class="nav" id="nav">
     <div class="nav__logo">Jana Alkahlan</div>
-    <ul class="nav__links">
-      <li><a href="#about">About</a></li>
-      <li><a href="#projects">Projects</a></li>
-      <li><a href="#github">GitHub</a></li>
-      <li><a href="#skills">Skills</a></li>
-      <li><a href="#contact">Contact</a></li>
+    <!-- data-section ties each link to a section id for active highlight -->
+    <ul class="nav__links" id="navLinks">
+      <li><a href="#about"    data-section="about">About</a></li>
+      <li><a href="#projects" data-section="projects">Projects</a></li>
+      <li><a href="#github"   data-section="github">GitHub</a></li>
+      <li><a href="#skills"   data-section="skills">Skills</a></li>
+      <li><a href="#contact"  data-section="contact">Contact</a></li>
     </ul>
     <div class="nav__right">
       <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
@@ -43,7 +48,7 @@
   </div>
 
   <!-- ============ HOW TO USE THIS WEBSITE — Guide Panel ============ -->
-  <!-- Dismissible guide: persists dismissal in localStorage so it won't reappear -->
+  <!-- Dismissible: dismissal persists in localStorage so it won't reappear -->
   <div class="site-guide" id="siteGuide">
     <div class="site-guide__inner">
       <button class="site-guide__close" id="siteGuideClose" aria-label="Dismiss guide">✕</button>
@@ -52,16 +57,16 @@
         <li>Navigate using the menu <span class="site-guide__step-note">(About, Projects, Skills, Contact)</span></li>
         <li>Use <strong>filters</strong> and <strong>search</strong> to explore projects</li>
         <li>Sort projects using the <strong>sort dropdown</strong></li>
+        <li><strong>Click any project card</strong> to see full details</li>
         <li>View live <strong>GitHub repositories</strong> in the GitHub section</li>
         <li>Fill the <strong>contact form</strong> to get in touch</li>
       </ol>
     </div>
   </div>
 
-  <!-- ============ WELCOME BANNER (personalisation) ============ -->
+  <!-- ============ WELCOME BANNER ============ -->
   <div class="welcome-banner" id="welcomeBanner" hidden>
     <span id="welcomeText"></span>
-    <button class="welcome-banner__close" id="welcomeClose" aria-label="Dismiss">✕</button>
   </div>
 
   <!-- ============ SESSION TIMER ============ -->
@@ -84,9 +89,30 @@
         Building practical, well-crafted software — from machine learning pipelines
         and desktop applications to full-stack web platforms.
       </p>
+
       <div class="hero__actions">
         <a href="#projects" class="btn btn--filled">View My Work</a>
         <a href="#contact"  class="btn btn--ring">Get in Touch</a>
+        <!-- Download CV button — links to placeholder PDF in assets/ folder -->
+        <a href="assets/cv.pdf" download class="btn btn--cv" aria-label="Download CV as PDF">
+          <span aria-hidden="true">↓</span> Download CV
+        </a>
+      </div>
+
+      <!-- Animated stat counters — numbers animate up on load -->
+      <div class="hero__stats">
+        <div class="stat-item reveal">
+          <span class="stat-item__num" data-target="4">0</span>
+          <span class="stat-item__label">Projects Built</span>
+        </div>
+        <div class="stat-item reveal">
+          <span class="stat-item__num" data-target="10">0</span>
+          <span class="stat-item__label">Technologies</span>
+        </div>
+        <div class="stat-item reveal">
+          <span class="stat-item__num" data-target="3">0</span>
+          <span class="stat-item__label">Years Studying</span>
+        </div>
       </div>
     </div>
 
@@ -140,12 +166,12 @@
 
       <!-- USER GUIDANCE -->
       <p class="projects__hint reveal">
-        Use filters or search to explore projects. You can also sort them.
+        Use filters or search to explore projects. Click any card to preview full details. You can also sort and favourite them.
       </p>
 
       <!-- SEARCH + FILTERS + SORT -->
       <div class="projects__controls reveal">
-        <!-- Search -->
+        <!-- Live search -->
         <div class="projects__search-wrap">
           <span class="projects__search-icon" aria-hidden="true">⌕</span>
           <input
@@ -158,12 +184,13 @@
           <button class="projects__search-clear" id="searchClear" aria-label="Clear search" hidden>✕</button>
         </div>
 
-        <!-- Filter buttons -->
+        <!-- Category filters + Favourites filter -->
         <div class="filter-btns" role="group" aria-label="Filter projects by category">
           <button class="filter-btn active" data-filter="all">All</button>
           <button class="filter-btn" data-filter="machine-learning">Machine Learning</button>
           <button class="filter-btn" data-filter="desktop">Desktop</button>
           <button class="filter-btn" data-filter="web">Web</button>
+          <button class="filter-btn filter-btn--fav" data-filter="favourites" aria-label="Show favourited projects">★ Favourites</button>
         </div>
 
         <!-- Sort dropdown -->
@@ -179,10 +206,20 @@
       </div>
 
       <!-- PROJECT GRID -->
+      <!-- Each card carries data-tech for the modal and data-id for favourites -->
       <div class="projects__grid" id="projectsGrid">
 
         <!-- Card 1 -->
-        <article class="card reveal" data-category="machine-learning" data-title="Academic Risk Predictor" data-desc="Identified risk factors linked to poor academic performance by designing and administering a student survey, then building end-to-end ML classification models in Python — data preprocessing, statistical analysis, and visualizations to turn raw data into actionable insights.">
+        <article class="card reveal" tabindex="0"
+          data-category="machine-learning"
+          data-title="Academic Risk Predictor"
+          data-desc="Identified risk factors linked to poor academic performance by designing and administering a student survey, then building end-to-end ML classification models in Python — data preprocessing, statistical analysis, and visualizations to turn raw data into actionable insights."
+          data-tech="Python · scikit-learn · Pandas · Matplotlib · Survey Design · Statistical Analysis"
+          data-emoji="📊"
+          data-num="01"
+          data-id="1">
+          <!-- Star/favourite button -->
+          <button class="card__fav-btn" aria-label="Favourite this project" data-id="1">★</button>
           <div class="card__top card__top--rose">
             <span class="card__num">01</span>
             <span class="card__emoji" aria-hidden="true">📊</span>
@@ -200,11 +237,20 @@
               classification models in Python — data preprocessing, statistical
               analysis, and visualizations to turn raw data into actionable insights.
             </p>
+            <span class="card__preview-hint" aria-hidden="true">Click to preview ↗</span>
           </div>
         </article>
 
         <!-- Card 2 -->
-        <article class="card reveal" data-category="desktop" data-title="Term Schedule Visualizer" data-desc="A desktop application that reads academic Excel schedules and dynamically renders visual timetables. Designed using OOP class diagrams with fully custom programmatic graphical output — no pre-built chart components used.">
+        <article class="card reveal" tabindex="0"
+          data-category="desktop"
+          data-title="Term Schedule Visualizer"
+          data-desc="A desktop application that reads academic Excel schedules and dynamically renders visual timetables. Designed using OOP class diagrams with fully custom programmatic graphical output — no pre-built chart components used."
+          data-tech="VB.NET · OOP · Excel Interop · GDI+ Graphics · Class Diagrams"
+          data-emoji="🗓️"
+          data-num="02"
+          data-id="2">
+          <button class="card__fav-btn" aria-label="Favourite this project" data-id="2">★</button>
           <div class="card__top card__top--terra">
             <span class="card__num">02</span>
             <span class="card__emoji" aria-hidden="true">🗓️</span>
@@ -222,11 +268,20 @@
               diagrams with fully custom programmatic graphical output — no
               pre-built chart components used.
             </p>
+            <span class="card__preview-hint" aria-hidden="true">Click to preview ↗</span>
           </div>
         </article>
 
         <!-- Card 3 -->
-        <article class="card reveal" data-category="desktop" data-title="Folder Structure Visualizer" data-desc="Applied the Composite and Strategy design patterns to model and visualize hierarchical file-folder systems. Recursively traverses directories, calculates sizes, and supports multiple visualization modes through a clean, extensible architecture.">
+        <article class="card reveal" tabindex="0"
+          data-category="desktop"
+          data-title="Folder Structure Visualizer"
+          data-desc="Applied the Composite and Strategy design patterns to model and visualize hierarchical file-folder systems. Recursively traverses directories, calculates sizes, and supports multiple visualization modes through a clean, extensible architecture."
+          data-tech="VB.NET · Composite Pattern · Strategy Pattern · Recursive Algorithms"
+          data-emoji="📁"
+          data-num="03"
+          data-id="3">
+          <button class="card__fav-btn" aria-label="Favourite this project" data-id="3">★</button>
           <div class="card__top card__top--sage">
             <span class="card__num">03</span>
             <span class="card__emoji" aria-hidden="true">📁</span>
@@ -244,11 +299,20 @@
               directories, calculates sizes, and supports multiple visualization
               modes through a clean, extensible architecture.
             </p>
+            <span class="card__preview-hint" aria-hidden="true">Click to preview ↗</span>
           </div>
         </article>
 
         <!-- Card 4 — Featured full-width -->
-        <article class="card card--featured reveal" data-category="web" data-title="Meras Mentorship Platform" data-desc="A web-based mentorship and career exploration platform helping students make informed academic decisions through task-based major simulations and peer guidance from students with relevant backgrounds. Built across frontend, backend, and database layers — combining software engineering principles with real-world system design and scalable architecture.">
+        <article class="card card--featured reveal" tabindex="0"
+          data-category="web"
+          data-title="Meras Mentorship Platform"
+          data-desc="A web-based mentorship and career exploration platform helping students make informed academic decisions through task-based major simulations and peer guidance from students with relevant backgrounds. Built across frontend, backend, and database layers — combining software engineering principles with real-world system design and scalable architecture."
+          data-tech="HTML · CSS · JavaScript · SQL · MySQL · PHP · Full-Stack Development · System Design"
+          data-emoji="🌱"
+          data-num="04"
+          data-id="4">
+          <button class="card__fav-btn" aria-label="Favourite this project" data-id="4">★</button>
           <div class="card__top card__top--blush">
             <span class="card__num">04</span>
             <span class="card__emoji" aria-hidden="true">🌱</span>
@@ -269,6 +333,7 @@
               frontend, backend, and database layers — combining software engineering
               principles with real-world system design and scalable architecture.
             </p>
+            <span class="card__preview-hint" aria-hidden="true">Click to preview ↗</span>
           </div>
         </article>
 
@@ -284,14 +349,35 @@
     </div>
   </section>
 
+  <!-- ============ PROJECT PREVIEW MODAL ============ -->
+  <!-- Opens when a project card is clicked; closed via overlay click, close btn, or Escape -->
+  <div class="modal-overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
+    <div class="modal" id="modal">
+      <button class="modal__close" id="modalClose" aria-label="Close project modal">✕</button>
+      <!-- Coloured header band — colour class applied dynamically via JS -->
+      <div class="modal__header" id="modalHeader">
+        <span class="modal__num" id="modalNum"></span>
+        <span class="modal__emoji" id="modalEmoji" aria-hidden="true"></span>
+      </div>
+      <div class="modal__body">
+        <h2 class="modal__title" id="modalTitle"></h2>
+        <div class="modal__chips" id="modalChips"></div>
+        <p class="modal__desc" id="modalDesc"></p>
+        <div class="modal__tech-wrap">
+          <p class="modal__tech-label">Technologies used</p>
+          <p class="modal__tech" id="modalTech"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ GITHUB REPOSITORIES ============ -->
   <section class="section github-section" id="github">
     <div class="container">
       <p class="section__eyebrow reveal">03 — GitHub</p>
       <h2 class="section__heading reveal">Live <em>Repositories</em></h2>
-      <p class="github-section__sub reveal">Fetched live from the GitHub API</p>
+      <p class="github-section__sub reveal">Fetched live from the GitHub API — click any card to view on GitHub</p>
 
-      <!-- Loading state -->
       <div class="github-loading" id="githubLoading" aria-live="polite">
         <div class="github-loading__dots">
           <span></span><span></span><span></span>
@@ -299,7 +385,6 @@
         <p>Loading repositories…</p>
       </div>
 
-      <!-- Error state -->
       <div class="github-error" id="githubError" hidden>
         <span class="github-error__icon" aria-hidden="true">⚠</span>
         <p>Unable to load projects at the moment.</p>
@@ -307,7 +392,6 @@
         <button class="btn btn--ring github-error__retry" id="githubRetry">Retry</button>
       </div>
 
-      <!-- Repos grid -->
       <div class="github-grid" id="githubGrid" hidden></div>
     </div>
   </section>
@@ -387,7 +471,6 @@
         </div>
 
         <div class="contact__right reveal">
-          <!-- USER GUIDANCE -->
           <p class="form__hint">
             Fill all fields correctly and submit. Errors will be shown if inputs are invalid.
           </p>
@@ -422,11 +505,11 @@
   <!-- ============ FOOTER ============ -->
   <footer class="footer">
     <div class="container">
-      <p>© 2026 Jana Alkahlan</p>
+      <p>© 2026 Jana Alkahlan — Built with care</p>
     </div>
   </footer>
 
-  <!-- Name prompt modal -->
+  <!-- ============ NAME PROMPT MODAL ============ -->
   <div class="name-modal" id="nameModal" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle" hidden>
     <div class="name-modal__box">
       <p class="name-modal__title" id="nameModalTitle">Welcome! What's your name?</p>

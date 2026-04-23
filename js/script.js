@@ -1,7 +1,7 @@
 /* ============================================================
    PORTFOLIO — script.js
    Author: Jana Alkahlan
-   Assignment 3 — Full Feature Version
+   Assignment 4 — Full Feature Version
    ============================================================ */
 
 /* ─── 1. TIME-BASED GREETING ────────────────────────────────── */
@@ -27,11 +27,9 @@ const htmlEl    = document.documentElement;
 function applyTheme(theme) {
   htmlEl.setAttribute('data-theme', theme);
   themeIcon.textContent = theme === 'light' ? '☾' : '☀';
-  // Persist preference
   localStorage.setItem('portfolio-theme', theme);
 }
 
-// Restore saved preference (default: light)
 const savedTheme = localStorage.getItem('portfolio-theme') || 'light';
 applyTheme(savedTheme);
 
@@ -47,7 +45,51 @@ window.addEventListener('scroll', () => {
   nav.classList.toggle('scrolled', window.scrollY > 60);
 }, { passive: true });
 
-/* ─── 4. HAMBURGER MENU ─────────────────────────────────────── */
+/* ─── 4. SCROLL PROGRESS BAR ────────────────────────────────── */
+// Updates a CSS width on the #scrollProgress element to reflect scroll %
+const scrollProgressBar = document.getElementById('scrollProgress');
+
+function updateScrollProgress() {
+  const scrollTop    = window.scrollY;
+  const docHeight    = document.documentElement.scrollHeight - window.innerHeight;
+  const scrollPercent = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  scrollProgressBar.style.width = scrollPercent + '%';
+  scrollProgressBar.setAttribute('aria-valuenow', Math.round(scrollPercent));
+}
+
+window.addEventListener('scroll', updateScrollProgress, { passive: true });
+updateScrollProgress(); // Initialise on load
+
+/* ─── 5. ACTIVE NAV HIGHLIGHT ───────────────────────────────── */
+// Uses IntersectionObserver to highlight the nav link for the visible section
+const navLinks   = document.querySelectorAll('.nav__links a[data-section]');
+const sections   = document.querySelectorAll('section[id]');
+
+/**
+ * Maps a section id to the corresponding nav anchor element.
+ */
+function getNavLink(sectionId) {
+  return document.querySelector(`.nav__links a[data-section="${sectionId}"]`);
+}
+
+const sectionObserver = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    const link = getNavLink(entry.target.id);
+    if (!link) return;
+    if (entry.isIntersecting) {
+      // Remove active from all, then add to current
+      navLinks.forEach(l => l.classList.remove('nav--active'));
+      link.classList.add('nav--active');
+    }
+  });
+}, {
+  rootMargin: '-40% 0px -55% 0px', // trigger when section is roughly centred
+  threshold: 0,
+});
+
+sections.forEach(section => sectionObserver.observe(section));
+
+/* ─── 6. HAMBURGER MENU ─────────────────────────────────────── */
 const hamburger  = document.getElementById('hamburger');
 const mobileMenu = document.getElementById('mobileMenu');
 let menuOpen     = false;
@@ -79,7 +121,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && menuOpen) toggleMenu(false);
 });
 
-/* ─── 5. SCROLL REVEAL ──────────────────────────────────────── */
+/* ─── 7. SCROLL REVEAL ──────────────────────────────────────── */
 const revealObserver = new IntersectionObserver(entries => {
   entries.forEach(entry => {
     if (entry.isIntersecting) {
@@ -91,7 +133,7 @@ const revealObserver = new IntersectionObserver(entries => {
 
 document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
 
-/* ─── 6. SMOOTH SCROLLING ───────────────────────────────────── */
+/* ─── 8. SMOOTH SCROLLING ───────────────────────────────────── */
 document.querySelectorAll('a[href^="#"]').forEach(link => {
   link.addEventListener('click', e => {
     const target = document.querySelector(link.getAttribute('href'));
@@ -99,47 +141,146 @@ document.querySelectorAll('a[href^="#"]').forEach(link => {
     e.preventDefault();
     const offset = target.getBoundingClientRect().top
                  + window.scrollY
-                 - nav.offsetHeight;
+                 - nav.offsetHeight - 8;
     window.scrollTo({ top: offset, behavior: 'smooth' });
   });
 });
 
-/* ─── 7. PROJECT FILTERING + LIVE SEARCH + SORTING ─────────── */
-// All cards that can be filtered/sorted
-const cards       = Array.from(document.querySelectorAll('.card[data-category]'));
-const emptyState  = document.getElementById('projectsEmpty');
-const searchInput = document.getElementById('projectSearch');
-const searchClear = document.getElementById('searchClear');
-const filterBtns  = document.querySelectorAll('.filter-btn');
-const sortSelect  = document.getElementById('sortSelect');
+/* ─── 9. ANIMATED STAT COUNTERS ─────────────────────────────── */
+// Numbers animate from 0 to their data-target value when the hero is visible
+const statNums = document.querySelectorAll('.stat-item__num[data-target]');
+let countersStarted = false;
+
+/**
+ * Animates a number element from 0 to its data-target value.
+ * Uses requestAnimationFrame for smooth 60fps animation.
+ */
+function animateCounter(el) {
+  const target   = parseInt(el.dataset.target, 10);
+  const duration = 1200; // ms
+  const start    = performance.now();
+
+  function step(now) {
+    const elapsed  = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    // Ease-out cubic
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(eased * target);
+    if (progress < 1) requestAnimationFrame(step);
+    else el.textContent = target; // Ensure exact final value
+  }
+
+  requestAnimationFrame(step);
+}
+
+// Observe hero section; start counters once it enters view
+const heroSection = document.querySelector('.hero');
+const counterObserver = new IntersectionObserver(entries => {
+  if (entries[0].isIntersecting && !countersStarted) {
+    countersStarted = true;
+    // Small stagger between each counter
+    statNums.forEach((el, i) => {
+      setTimeout(() => animateCounter(el), i * 180);
+    });
+    counterObserver.disconnect();
+  }
+}, { threshold: 0.4 });
+
+if (heroSection) counterObserver.observe(heroSection);
+
+/* ─── 10. FAVOURITES SYSTEM ─────────────────────────────────── */
+// Stores a Set of project IDs in localStorage under 'portfolio-favourites'
+const FAV_KEY  = 'portfolio-favourites';
+const favBtns  = document.querySelectorAll('.card__fav-btn');
+
+/**
+ * Loads the favourites set from localStorage.
+ */
+function loadFavourites() {
+  try {
+    const stored = localStorage.getItem(FAV_KEY);
+    return new Set(stored ? JSON.parse(stored) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Saves the favourites set back to localStorage.
+ */
+function saveFavourites(favSet) {
+  localStorage.setItem(FAV_KEY, JSON.stringify([...favSet]));
+}
+
+// Live favourites state
+let favourites = loadFavourites();
+
+/**
+ * Applies visual (active) state to all star buttons and cards
+ * based on the current favourites set.
+ */
+function renderFavourites() {
+  favBtns.forEach(btn => {
+    const id = btn.dataset.id;
+    const card = btn.closest('.card');
+    const isFav = favourites.has(id);
+    btn.classList.toggle('fav--active', isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    if (card) card.classList.toggle('card--favourited', isFav);
+  });
+}
+
+// Wire up each star button
+favBtns.forEach(btn => {
+  btn.addEventListener('click', e => {
+    // Prevent click from also opening the modal
+    e.stopPropagation();
+    const id = btn.dataset.id;
+    if (favourites.has(id)) {
+      favourites.delete(id);
+    } else {
+      favourites.add(id);
+    }
+    saveFavourites(favourites);
+    renderFavourites();
+    // Re-apply filters in case 'favourites' filter is active
+    applyFilters();
+  });
+});
+
+renderFavourites(); // Apply on load
+
+/* ─── 11. PROJECT FILTERING + SEARCH + SORTING ──────────────── */
+const cards        = Array.from(document.querySelectorAll('.card[data-category]'));
+const emptyState   = document.getElementById('projectsEmpty');
+const searchInput  = document.getElementById('projectSearch');
+const searchClear  = document.getElementById('searchClear');
+const filterBtns   = document.querySelectorAll('.filter-btn');
+const sortSelect   = document.getElementById('sortSelect');
 const projectsGrid = document.getElementById('projectsGrid');
 
-// --- State: Restore saved preferences from localStorage ---
-// Restore last active filter
+// Restore saved state from localStorage
 const savedFilter = localStorage.getItem('portfolio-filter') || 'all';
-// Restore last search query
 const savedSearch = localStorage.getItem('portfolio-search') || '';
 
 let activeFilter = savedFilter;
 let searchQuery  = savedSearch;
 
-// Apply restored filter button state visually
+// Restore visual state
 filterBtns.forEach(btn => {
   btn.classList.toggle('active', btn.dataset.filter === activeFilter);
 });
-
-// Apply restored search value
 if (searchInput && savedSearch) {
   searchInput.value = savedSearch;
 }
 
 /**
- * Shows a card with a fade-in animation.
+ * Shows a card with fade-in animation.
  */
 function showCard(card) {
   card.classList.remove('card--hidden');
   card.classList.remove('card--fade-in');
-  void card.offsetWidth; // Trigger reflow to restart animation
+  void card.offsetWidth; // Reflow to restart animation
   card.classList.add('card--fade-in');
 }
 
@@ -152,55 +293,47 @@ function hideCard(card) {
 }
 
 /**
- * Sorts an array of card elements based on current sort value.
- * Sorting options: default, name-az, name-za, category
+ * Returns a sorted copy of the card array based on the sort dropdown value.
+ * Sorting options: default | name-az | name-za | category
  */
 function getSortedCards(cardArray) {
   const sortValue = sortSelect ? sortSelect.value : 'default';
-
-  const sorted = [...cardArray]; // Clone to avoid mutating original
+  const sorted = [...cardArray];
 
   if (sortValue === 'name-az') {
-    sorted.sort((a, b) =>
-      (a.dataset.title || '').localeCompare(b.dataset.title || '')
-    );
+    sorted.sort((a, b) => (a.dataset.title || '').localeCompare(b.dataset.title || ''));
   } else if (sortValue === 'name-za') {
-    sorted.sort((a, b) =>
-      (b.dataset.title || '').localeCompare(a.dataset.title || '')
-    );
+    sorted.sort((a, b) => (b.dataset.title || '').localeCompare(a.dataset.title || ''));
   } else if (sortValue === 'category') {
-    sorted.sort((a, b) =>
-      (a.dataset.category || '').localeCompare(b.dataset.category || '')
-    );
+    sorted.sort((a, b) => (a.dataset.category || '').localeCompare(b.dataset.category || ''));
   }
-  // 'default' = original DOM order (no sort)
-
   return sorted;
 }
 
 /**
- * Applies current filter + search + sort state to all cards.
- * Only re-orders DOM when sorting is active to avoid unnecessary updates.
+ * Main filter + sort + search function.
+ * Re-orders DOM nodes efficiently, then shows/hides based on matching.
  */
 function applyFilters() {
   const query = searchQuery.toLowerCase().trim();
   let visibleCount = 0;
 
-  // Get sorted order
   const sortedCards = getSortedCards(cards);
 
-  // Re-append cards to grid in sorted order (efficient: only moves DOM nodes)
-  sortedCards.forEach(card => {
-    projectsGrid.appendChild(card);
-  });
+  // Re-append in sorted order (DOM move, no re-create)
+  sortedCards.forEach(card => projectsGrid.appendChild(card));
 
-  // Now filter: show/hide each card based on filter + search
   sortedCards.forEach(card => {
     const category = card.dataset.category || '';
-    const title    = (card.dataset.title    || '').toLowerCase();
-    const desc     = (card.dataset.desc     || '').toLowerCase();
+    const title    = (card.dataset.title || '').toLowerCase();
+    const desc     = (card.dataset.desc  || '').toLowerCase();
+    const cardId   = card.dataset.id;
 
-    const matchesFilter = activeFilter === 'all' || category === activeFilter;
+    const matchesFilter =
+      activeFilter === 'all'
+      || (activeFilter === 'favourites' && favourites.has(cardId))
+      || category === activeFilter;
+
     const matchesSearch = !query || title.includes(query) || desc.includes(query);
 
     if (matchesFilter && matchesSearch) {
@@ -211,22 +344,15 @@ function applyFilters() {
     }
   });
 
-  // Show/hide empty state message
-  if (emptyState) {
-    emptyState.hidden = visibleCount > 0;
-  }
+  if (emptyState) emptyState.hidden = visibleCount > 0;
+  if (searchClear) searchClear.hidden = query.length === 0;
 
-  // Show/hide the clear search button
-  if (searchClear) {
-    searchClear.hidden = query.length === 0;
-  }
-
-  // Persist state to localStorage
+  // Persist preferences
   localStorage.setItem('portfolio-filter', activeFilter);
   localStorage.setItem('portfolio-search', searchQuery);
 }
 
-// Filter button clicks
+// Filter buttons
 filterBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     filterBtns.forEach(b => b.classList.remove('active'));
@@ -236,7 +362,7 @@ filterBtns.forEach(btn => {
   });
 });
 
-// Live search input
+// Live search
 if (searchInput) {
   searchInput.addEventListener('input', () => {
     searchQuery = searchInput.value;
@@ -244,7 +370,7 @@ if (searchInput) {
   });
 }
 
-// Clear button
+// Clear search
 if (searchClear) {
   searchClear.addEventListener('click', () => {
     searchInput.value = '';
@@ -254,21 +380,111 @@ if (searchClear) {
   });
 }
 
-// Sort dropdown change
+// Sort
 if (sortSelect) {
-  sortSelect.addEventListener('change', () => {
-    applyFilters();
+  sortSelect.addEventListener('change', applyFilters);
+}
+
+/* ─── 12. PROJECT PREVIEW MODAL ─────────────────────────────── */
+const modalOverlay = document.getElementById('modalOverlay');
+const modalClose   = document.getElementById('modalClose');
+const modal        = document.getElementById('modal');
+
+// Map data-category values to CSS header colour classes
+const CARD_TOP_CLASSES = {
+  'machine-learning': 'card__top--rose',
+  'desktop':          'card__top--terra',
+  'web':              'card__top--blush',
+  'default':          'card__top--sage',
+};
+
+/**
+ * Opens the project modal, populating it with data from the clicked card.
+ * @param {HTMLElement} card - The project card element that was clicked.
+ */
+function openModal(card) {
+  const title    = card.dataset.title    || '';
+  const desc     = card.dataset.desc     || '';
+  const tech     = card.dataset.tech     || '';
+  const emoji    = card.dataset.emoji    || '';
+  const num      = card.dataset.num      || '';
+  const category = card.dataset.category || 'default';
+
+  // Populate fields
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalDesc').textContent  = desc;
+  document.getElementById('modalTech').textContent  = tech;
+  document.getElementById('modalEmoji').textContent = emoji;
+  document.getElementById('modalNum').textContent   = num;
+
+  // Populate chips from the card's own chips
+  const modalChips = document.getElementById('modalChips');
+  modalChips.innerHTML = '';
+  card.querySelectorAll('.chip').forEach(chip => {
+    const clone = chip.cloneNode(true);
+    modalChips.appendChild(clone);
+  });
+
+  // Apply matching header colour class
+  const header = document.getElementById('modalHeader');
+  header.className = 'modal__header'; // reset
+  const colourClass = CARD_TOP_CLASSES[category] || CARD_TOP_CLASSES['default'];
+  header.classList.add(colourClass);
+
+  // Show overlay; lock body scroll
+  modalOverlay.hidden = false;
+  document.body.style.overflow = 'hidden';
+
+  // Focus the close button for accessibility
+  requestAnimationFrame(() => modalClose.focus());
+}
+
+/**
+ * Closes the project modal and restores scroll.
+ */
+function closeModal() {
+  modalOverlay.hidden = true;
+  document.body.style.overflow = '';
+}
+
+// Open modal on card click or Enter/Space key
+cards.forEach(card => {
+  card.addEventListener('click', e => {
+    // Don't open if the star button was clicked
+    if (e.target.closest('.card__fav-btn')) return;
+    openModal(card);
+  });
+
+  card.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('.card__fav-btn')) {
+      e.preventDefault();
+      openModal(card);
+    }
+  });
+});
+
+// Close via button or overlay backdrop click
+if (modalClose)   modalClose.addEventListener('click', closeModal);
+if (modalOverlay) {
+  modalOverlay.addEventListener('click', e => {
+    // Only close if clicking the overlay itself, not the modal card
+    if (e.target === modalOverlay) closeModal();
   });
 }
 
-/* ─── 8. FORM VALIDATION ────────────────────────────────────── */
+// Close on Escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !modalOverlay.hidden) closeModal();
+});
+
+/* ─── 13. FORM VALIDATION ───────────────────────────────────── */
 const form       = document.getElementById('contactForm');
 const submitBtn  = document.getElementById('submitBtn');
 const successMsg = document.getElementById('formSuccess');
 
 /**
- * Validates a single field.
- * Returns an error string if invalid, or '' if valid.
+ * Validates a single field by id and type.
+ * Returns an error string, or '' if valid.
  */
 function validate(id, type) {
   const el  = document.getElementById(id);
@@ -282,8 +498,7 @@ function validate(id, type) {
 }
 
 /**
- * Shows or clears an inline error for a field,
- * and toggles the 'invalid' CSS class accordingly.
+ * Sets or clears the inline error for a field.
  */
 function setFieldError(inputId, errorId, message) {
   const input = document.getElementById(inputId);
@@ -292,19 +507,17 @@ function setFieldError(inputId, errorId, message) {
     errEl.textContent = message;
     input.classList.add('invalid');
   } else {
-    // Always clear error text and invalid class when message is empty
     errEl.textContent = '';
     input.classList.remove('invalid');
   }
 }
 
-// Clear errors in real-time as user types — instant feedback
+// Real-time inline validation
 ['name', 'email', 'message'].forEach(id => {
   const el   = document.getElementById(id);
   const type = id === 'message' ? 'textarea' : id;
   el.addEventListener('input', () => {
-    const err = validate(id, type);
-    setFieldError(id, id + 'Error', err);
+    setFieldError(id, id + 'Error', validate(id, type));
   });
 });
 
@@ -312,7 +525,6 @@ if (form) {
   form.addEventListener('submit', e => {
     e.preventDefault();
 
-    // Validate all fields
     const nameErr    = validate('name',    'text');
     const emailErr   = validate('email',   'email');
     const messageErr = validate('message', 'textarea');
@@ -321,10 +533,7 @@ if (form) {
     setFieldError('email',   'emailError',   emailErr);
     setFieldError('message', 'messageError', messageErr);
 
-    const hasErrors = nameErr || emailErr || messageErr;
-
-    if (hasErrors) {
-      // Scroll to the first invalid field for usability
+    if (nameErr || emailErr || messageErr) {
       const firstInvalid = form.querySelector('.invalid');
       if (firstInvalid) {
         firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -333,38 +542,28 @@ if (form) {
       return;
     }
 
-    // ── Sending state ──────────────────────────────────────
+    // Sending state
     submitBtn.disabled    = true;
     submitBtn.textContent = 'Sending…';
     if (successMsg) successMsg.classList.remove('show');
 
-    // Simulate async send (replace with real API call if needed)
     setTimeout(() => {
       submitBtn.textContent = 'Sent ✓';
-
-      // Show success message
       if (successMsg) successMsg.classList.add('show');
 
-      // Reset form fully — clear fields AND all error states
+      // Reset fully after 4 s
       setTimeout(() => {
         form.reset();
         submitBtn.disabled    = false;
         submitBtn.textContent = 'Send Message';
-
-        // Explicitly clear all inline errors after reset
-        ['name', 'email', 'message'].forEach(id => {
-          setFieldError(id, id + 'Error', '');
-        });
-
-        // Hide success message
+        ['name', 'email', 'message'].forEach(id => setFieldError(id, id + 'Error', ''));
         if (successMsg) successMsg.classList.remove('show');
       }, 4000);
-
     }, 1200);
   });
 }
 
-/* ─── 9. GITHUB API INTEGRATION ─────────────────────────────── */
+/* ─── 14. GITHUB API INTEGRATION ────────────────────────────── */
 const githubUsername = 'Jana-101';
 const githubApiUrl   = `https://api.github.com/users/${githubUsername}/repos?sort=updated&per_page=12`;
 
@@ -373,9 +572,7 @@ const githubError   = document.getElementById('githubError');
 const githubGrid    = document.getElementById('githubGrid');
 const githubRetry   = document.getElementById('githubRetry');
 
-/**
- * Language dot colours — approximate common GitHub language colours.
- */
+// Language → GitHub-style colour map
 const LANG_COLORS = {
   JavaScript: '#f1e05a',
   TypeScript: '#3178c6',
@@ -390,33 +587,30 @@ const LANG_COLORS = {
   Default:    '#8a7060',
 };
 
-/**
- * Returns a colour hex string for a given language name.
- */
 function getLangColor(lang) {
   return LANG_COLORS[lang] || LANG_COLORS.Default;
 }
 
 /**
- * Builds and returns a single repo card DOM element.
+ * Builds a repo card as an anchor element that opens GitHub.
  */
 function buildRepoCard(repo) {
-  const card = document.createElement('div');
+  // Make the whole card a link to the repo
+  const card = document.createElement('a');
   card.className = 'repo-card';
+  card.href      = repo.html_url;
+  card.target    = '_blank';
+  card.rel       = 'noopener noreferrer';
+  card.setAttribute('aria-label', `View ${repo.name} on GitHub`);
 
-  // Repo name with link
+  // Repo name
   const nameEl = document.createElement('div');
-  nameEl.className = 'repo-card__name';
-  const nameLink = document.createElement('a');
-  nameLink.href   = repo.html_url;
-  nameLink.target = '_blank';
-  nameLink.rel    = 'noopener noreferrer';
-  nameLink.textContent = repo.name;
-  nameEl.appendChild(nameLink);
+  nameEl.className  = 'repo-card__name';
+  nameEl.textContent = repo.name;
 
-  // Description (or fallback text)
+  // Description
   const descEl = document.createElement('p');
-  descEl.className = repo.description
+  descEl.className  = repo.description
     ? 'repo-card__desc'
     : 'repo-card__desc repo-card__desc--empty';
   descEl.textContent = repo.description || 'No description provided.';
@@ -449,11 +643,10 @@ function buildRepoCard(repo) {
 }
 
 /**
- * Fetches repos from GitHub API and renders them.
- * Uses async/await. Shows error message on failure.
+ * Fetches repos from the GitHub API and renders them.
+ * Handles loading, error, and empty states.
  */
 async function fetchGithubRepos() {
-  // Show loading, hide others
   githubLoading.hidden = false;
   githubError.hidden   = true;
   githubGrid.hidden    = true;
@@ -461,70 +654,56 @@ async function fetchGithubRepos() {
 
   try {
     const response = await fetch(githubApiUrl);
-
-    if (!response.ok) {
-      throw new Error(`GitHub API responded with status ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`Status ${response.status}`);
 
     const repos = await response.json();
-
-    // Hide loading, show grid
     githubLoading.hidden = true;
     githubGrid.hidden    = false;
 
     if (!repos.length) {
-      // Edge case: user has no public repos
       githubGrid.innerHTML = '<p style="color:var(--text-3);font-size:0.85rem;">No public repositories found.</p>';
       return;
     }
 
-    // Build and append a card for each repo
-    repos.forEach(repo => {
-      const card = buildRepoCard(repo);
-      githubGrid.appendChild(card);
-    });
+    repos.forEach(repo => githubGrid.appendChild(buildRepoCard(repo)));
 
   } catch (err) {
-    // Log for debugging; show user-friendly message
     console.warn('GitHub API error:', err);
     githubLoading.hidden = true;
     githubError.hidden   = false;
   }
 }
 
-// Retry button
-if (githubRetry) {
-  githubRetry.addEventListener('click', fetchGithubRepos);
-}
+if (githubRetry) githubRetry.addEventListener('click', fetchGithubRepos);
 
-/* ─── 10. STATE MANAGEMENT — USER NAME (BONUS) ──────────────── */
-const nameModal   = document.getElementById('nameModal');
-const nameInput   = document.getElementById('nameInput');
-const nameSubmit  = document.getElementById('nameSubmit');
-const nameSkip    = document.getElementById('nameSkip');
-const welcomeBanner     = document.getElementById('welcomeBanner');
-const welcomeText       = document.getElementById('welcomeText');
-const welcomeClose      = document.getElementById('welcomeClose');
+/* ─── 15. USER NAME & WELCOME BANNER ────────────────────────── */
+const nameModal     = document.getElementById('nameModal');
+const nameInput     = document.getElementById('nameInput');
+const nameSubmit    = document.getElementById('nameSubmit');
+const nameSkip      = document.getElementById('nameSkip');
+const welcomeBanner = document.getElementById('welcomeBanner');
+const welcomeText   = document.getElementById('welcomeText');
 
-/**
- * Shows the personalised welcome banner.
- */
+
 function showWelcomeBanner(name) {
   if (!welcomeBanner || !welcomeText) return;
-  welcomeText.textContent = `Welcome back, ${name}! 👋`;
+
+  const isStranger =
+    !name || name === '__skipped__' || name.trim() === '';
+
+  if (isStranger) {
+    welcomeText.textContent = `Hello there, stranger! 👋`;
+  } else {
+    welcomeText.textContent = `Welcome,  ${name}! 👋`;
+  }
+
   welcomeBanner.hidden = false;
 }
 
-/**
- * Dismisses and closes the welcome banner.
- */
 function dismissWelcome() {
   if (welcomeBanner) welcomeBanner.hidden = true;
 }
 
-/**
- * Saves the user's name and closes the modal.
- */
 function saveName() {
   const name = nameInput ? nameInput.value.trim() : '';
   if (name) {
@@ -532,43 +711,31 @@ function saveName() {
     showWelcomeBanner(name);
   }
   if (nameModal) nameModal.hidden = true;
-  document.body.style.overflow = ''; // Restore scrolling
+  document.body.style.overflow = '';
 }
 
-/**
- * Skips name entry and closes the modal without saving.
- */
 function skipName() {
   localStorage.setItem('portfolio-username', '__skipped__');
+
+  showWelcomeBanner('__skipped__');
+
   if (nameModal) nameModal.hidden = true;
   document.body.style.overflow = '';
 }
 
-// Wire up modal buttons
 if (nameSubmit) nameSubmit.addEventListener('click', saveName);
 if (nameSkip)   nameSkip.addEventListener('click', skipName);
-
-// Allow pressing Enter to submit name
 if (nameInput) {
   nameInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') saveName();
+    if (e.key === 'Enter')  saveName();
     if (e.key === 'Escape') skipName();
   });
 }
 
-// Close welcome banner
-if (welcomeClose) welcomeClose.addEventListener('click', dismissWelcome);
 
-/**
- * Initialises the name/welcome flow on page load.
- * - If name not stored: show name prompt modal
- * - If name stored and not skipped: show welcome banner briefly
- */
 function initNameFlow() {
   const storedName = localStorage.getItem('portfolio-username');
-
   if (!storedName) {
-    // First visit — show modal after a short delay
     setTimeout(() => {
       if (nameModal) {
         nameModal.hidden = false;
@@ -577,54 +744,38 @@ function initNameFlow() {
       }
     }, 1800);
   } else if (storedName !== '__skipped__') {
-    // Returning visitor — show banner
     showWelcomeBanner(storedName);
-    // Auto-hide after 5 seconds
     setTimeout(dismissWelcome, 5000);
   }
 }
 
-/* ─── 11. SESSION TIMER (Extra Feature) ─────────────────────── */
-const sessionTimerEl   = document.getElementById('sessionTimer');
+/* ─── 16. SESSION TIMER ─────────────────────────────────────── */
 const sessionTimerText = document.getElementById('sessionTimerText');
-const sessionStart     = Date.now(); // Record page load time
+const sessionStart     = Date.now();
 
 /**
- * Updates the session timer display every second.
- * Formats seconds into a human-readable string (Xs / Xm Xs / Xh Xm).
+ * Formats elapsed seconds into a human-readable duration string.
  */
+function formatElapsed(seconds) {
+  if (seconds < 60)   return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
+
 function updateSessionTimer() {
   const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
-
-  let display;
-  if (elapsed < 60) {
-    display = `${elapsed}s`;
-  } else if (elapsed < 3600) {
-    const m = Math.floor(elapsed / 60);
-    const s = elapsed % 60;
-    display = `${m}m ${s}s`;
-  } else {
-    const h = Math.floor(elapsed / 3600);
-    const m = Math.floor((elapsed % 3600) / 60);
-    display = `${h}h ${m}m`;
-  }
-
   if (sessionTimerText) {
-    sessionTimerText.textContent = `You've been here for ${display}`;
+    sessionTimerText.textContent = `You've been here for ${formatElapsed(elapsed)}`;
   }
 }
 
-// Start the timer — update every second
 setInterval(updateSessionTimer, 1000);
-updateSessionTimer(); // Run immediately so it shows '0s' right away
+updateSessionTimer();
 
-/* ─── 12. SITE GUIDE DISMISS ────────────────────────────────── */
+/* ─── 17. SITE GUIDE DISMISS ────────────────────────────────── */
 const siteGuide      = document.getElementById('siteGuide');
 const siteGuideClose = document.getElementById('siteGuideClose');
 
-/**
- * Hides the site guide hint box and persists the dismissal.
- */
 function dismissGuide() {
   if (siteGuide) {
     siteGuide.classList.add('site-guide--hidden');
@@ -632,17 +783,15 @@ function dismissGuide() {
   }
 }
 
-if (siteGuideClose) {
-  siteGuideClose.addEventListener('click', dismissGuide);
-}
+if (siteGuideClose) siteGuideClose.addEventListener('click', dismissGuide);
 
-// If previously dismissed, hide immediately without animation
+// If user already dismissed, hide immediately without animation
 if (localStorage.getItem('portfolio-guide-dismissed') === '1' && siteGuide) {
   siteGuide.style.display = 'none';
 }
 
 /* ─── INIT ──────────────────────────────────────────────────── */
 setGreeting();
-applyFilters();    // Ensure initial filter/sort/search state is correct
-fetchGithubRepos(); // Fetch and display GitHub repos
-initNameFlow();    // Handle user name prompt / welcome banner
+applyFilters();       // Restore saved filter/search/sort state
+fetchGithubRepos();   // Load GitHub repositories
+initNameFlow();       // Name prompt / welcome banner
